@@ -83,6 +83,24 @@ PreviewPanel::PreviewPanel(QWidget *parent)
     m_title = new QLabel("PREVIEW", header);
     m_title->setObjectName("previewTitle");
 
+    m_zoomInBtn = new QToolButton(header);
+    m_zoomInBtn->setText("+");
+    m_zoomInBtn->setToolTip("Zoom in");
+    m_zoomInBtn->setFixedSize(24, 24);
+    connect(m_zoomInBtn, &QToolButton::clicked, this, &PreviewPanel::zoomIn);
+
+    m_zoomOutBtn = new QToolButton(header);
+    m_zoomOutBtn->setText("-");
+    m_zoomOutBtn->setToolTip("Zoom out");
+    m_zoomOutBtn->setFixedSize(24, 24);
+    connect(m_zoomOutBtn, &QToolButton::clicked, this, &PreviewPanel::zoomOut);
+
+    m_zoomResetBtn = new QToolButton(header);
+    m_zoomResetBtn->setText("1:1");
+    m_zoomResetBtn->setToolTip("Reset zoom");
+    m_zoomResetBtn->setFixedSize(32, 24);
+    connect(m_zoomResetBtn, &QToolButton::clicked, this, &PreviewPanel::zoomReset);
+
     m_closeBtn = new QToolButton(header);
     m_closeBtn->setText(QStringLiteral("✕"));
     m_closeBtn->setToolTip("Close preview");
@@ -93,6 +111,9 @@ PreviewPanel::PreviewPanel(QWidget *parent)
     });
 
     hdrLay->addWidget(m_title, 1);
+    hdrLay->addWidget(m_zoomOutBtn);
+    hdrLay->addWidget(m_zoomInBtn);
+    hdrLay->addWidget(m_zoomResetBtn);
     hdrLay->addWidget(m_closeBtn);
     root->addWidget(header);
 
@@ -267,7 +288,7 @@ void PreviewPanel::previewFolderGraph(const QString &folderPath) {
 
     // Root folder node
     nodes.append(QString("  %1 [label=\"%2\", shape=box, style=filled, "
-                         "fillcolor=\"#61afef25\", color=\"#61afef\"];")
+                         "fillcolor=\"#61afef40\", color=\"#61afef\", fontcolor=\"white\"];")
                      .arg(nodeId).arg(fi.fileName()));
     int rootId = nodeId;
     nodeId++;
@@ -301,14 +322,14 @@ void PreviewPanel::previewFolderGraph(const QString &folderPath) {
             color = "#abb2bf";
 
         QString label = entry.fileName();
-        if (label.length() > 15)
-            label = label.left(12) + "...";
+        if (label.length() > 20)
+            label = label.left(17) + "...";
 
         QString shape = entry.isDir() ? "box" : "ellipse";
-        QString fill = entry.isDir() ? "#61afef25" : color + "25";
+        QString fill = entry.isDir() ? "#61afef40" : color + "40";
 
         nodes.append(QString("  %1 [label=\"%2\", shape=%3, style=filled, "
-                             "fillcolor=\"%4\", color=\"%5\"];")
+                             "fillcolor=\"%4\", color=\"%5\", fontcolor=\"white\"];")
                          .arg(nodeId).arg(label.toHtmlEscaped())
                          .arg(shape).arg(fill).arg(color));
 
@@ -332,10 +353,10 @@ void PreviewPanel::previewFolderGraph(const QString &folderPath) {
                 else subColor = "#abb2bf";
 
                 QString subLabel = sub.fileName();
-                if (subLabel.length() > 12) subLabel = subLabel.left(9) + "...";
+                if (subLabel.length() > 15) subLabel = subLabel.left(12) + "...";
 
                 nodes.append(QString("  %1 [label=\"%2\", shape=ellipse, style=filled, "
-                                     "fillcolor=\"%325\", color=\"%3\"];")
+                                     "fillcolor=\"%340\", color=\"%3\", fontcolor=\"white\"];")
                                  .arg(nodeId).arg(subLabel.toHtmlEscaped())
                                  .arg(subColor));
                 edges.append(QString("  %1 -> %2;").arg(nodeId - 1).arg(nodeId));
@@ -349,11 +370,11 @@ void PreviewPanel::previewFolderGraph(const QString &folderPath) {
                   "  layout=neato;\n"
                   "  overlap=false;\n"
                   "  splines=ortho;\n"
-                  "  bgcolor=\"transparent\";\n"
+                  "  bgcolor=\"#282c34\";\n"
                   "  ratio=fill;\n"
-                  "  size=\"4,4\";\n"
-                  "  node [fontname=\"DejaVu Sans Mono\", fontsize=10];\n"
-                  "  edge [color=\"#3e4451\", arrowsize=0.5];\n\n";
+                  "  size=\"5,5\";\n"
+                  "  node [fontname=\"DejaVu Sans Mono\", fontsize=12];\n"
+                  "  edge [color=\"#3e4451\", arrowsize=0.6];\n\n";
 
     for (const auto &n : nodes)
         dot += n + "\n";
@@ -403,4 +424,49 @@ void PreviewPanel::previewFolderGraph(const QString &folderPath) {
 
     QFile::remove(dotPath);
     QFile::remove(pngPath);
+}
+
+void PreviewPanel::zoomIn() {
+    m_zoom = qMin(3.0, m_zoom + 0.25);
+    if (!m_path.isEmpty() && m_stack->currentWidget() == m_imageScroll) {
+        // Re-render with current image at new zoom
+        QPixmap px = m_imageLabel->pixmap();
+        if (!px.isNull()) {
+            int maxW = qMax(200, (int)(width() * m_zoom));
+            int maxH = qMax(200, (int)(height() * m_zoom));
+            QPixmap scaled = px.scaled(maxW, maxH, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+            m_imageLabel->setPixmap(scaled);
+            m_imageLabel->adjustSize();
+        }
+    }
+}
+
+void PreviewPanel::zoomOut() {
+    m_zoom = qMax(0.25, m_zoom - 0.25);
+    if (!m_path.isEmpty() && m_stack->currentWidget() == m_imageScroll) {
+        QPixmap px = m_imageLabel->pixmap();
+        if (!px.isNull()) {
+            int maxW = qMax(200, (int)(width() * m_zoom));
+            int maxH = qMax(200, (int)(height() * m_zoom));
+            QPixmap scaled = px.scaled(maxW, maxH, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+            m_imageLabel->setPixmap(scaled);
+            m_imageLabel->adjustSize();
+        }
+    }
+}
+
+void PreviewPanel::zoomReset() {
+    m_zoom = 1.0;
+    if (!m_path.isEmpty() && m_stack->currentWidget() == m_imageScroll) {
+        // Reload the original image
+        if (m_path.endsWith(".png") || m_path.endsWith(".jpg") || m_path.endsWith(".gif")) {
+            showImage(m_path);
+        } else {
+            // For graphs, re-render
+            QFileInfo fi(m_path);
+            if (fi.isDir()) {
+                previewFolderGraph(m_path);
+            }
+        }
+    }
 }
