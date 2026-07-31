@@ -58,8 +58,15 @@ void showContextMenu(MainWindow *window, const QPoint &globalPos,
             // Open with SwordGraph for folders
             menu.addAction(QIcon::fromTheme("view-process-tree"), "Open with SwordGraph",
                            window, [path, window]() {
-                QProcess::startDetached("sh", {"-c",
-                    QString("cd '%1' && python3 ~/.config/animated-wallpaper/graph-edit.sh 2>/dev/null || true").arg(path)});
+                QString script = QDir::homePath() + "/animated-wallpaper/swordgraph";
+                if (QFileInfo::exists(script)) {
+                    QProcess::startDetached("sh", {script, path});
+                    QMessageBox::information(window, "SwordGraph",
+                        QString("Graph generated for:\n%1\n\nRestart sworddeck to view.").arg(path));
+                } else {
+                    QMessageBox::warning(window, "SwordGraph",
+                        "swordgraph not found at ~/animated-wallpaper/swordgraph");
+                }
             });
             menu.addAction(QIcon::fromTheme("utilities-terminal"), "Open Terminal Here",
                            window, &MainWindow::openTerminalHere);

@@ -1,5 +1,6 @@
 #include "fileview.h"
 #include "filefilter.h"
+#include "fileicondelegate.h"
 #include "theme.h"
 
 #include <QHeaderView>
@@ -82,6 +83,9 @@ void FileView::setupDetailsView() {
     m_detailsView->setAllColumnsShowFocus(true);
     m_detailsView->setIconSize(QSize(22, 22));
 
+    // Custom icon delegate for first column
+    m_detailsView->setItemDelegateForColumn(0, new FileIconDelegate(this));
+
     auto *hdr = m_detailsView->header();
     hdr->setStretchLastSection(true);
     hdr->setSectionsClickable(true);
@@ -113,6 +117,10 @@ void FileView::setupIconView() {
     m_iconView->setDefaultDropAction(Qt::MoveAction);
     m_iconView->setDragDropMode(QAbstractItemView::DragDrop);
     m_iconView->setEditTriggers(QAbstractItemView::EditKeyPressed);
+
+    // Custom delegate for icon view
+    m_iconView->setItemDelegate(new FileIconDelegate(this));
+
     wireView(m_iconView);
 }
 
