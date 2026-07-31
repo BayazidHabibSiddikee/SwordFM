@@ -40,6 +40,9 @@ public slots:
     void bookmarkCurrent();
     void bookmarkSelection();
     void openTerminalHere();
+    void selectNext();
+    void selectPrev();
+    void openSelected();
 
 private slots:
     void onFileActivated(const QModelIndex &index);

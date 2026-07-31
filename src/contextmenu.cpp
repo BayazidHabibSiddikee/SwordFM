@@ -15,6 +15,7 @@
 #include <QLineEdit>
 #include <QProcess>
 #include <QUrl>
+#include <QDir>
 
 void showContextMenu(MainWindow *window, const QPoint &globalPos,
                      const QStringList &selectedPaths, const QString &currentPath)
@@ -48,16 +49,30 @@ void showContextMenu(MainWindow *window, const QPoint &globalPos,
         const QString path = selectedPaths.first();
         QFileInfo fi(path);
 
-        menu.addAction(QIcon::fromTheme("document-open"), "Open", window, [window, selectedPaths]() {
-            for (const auto &p : selectedPaths)
-                window->openFile(p);
-        });
+        // Open action
+        if (fi.isDir()) {
+            menu.addAction(QIcon::fromTheme("folder-open"), "Open", window, [window, selectedPaths]() {
+                for (const auto &p : selectedPaths)
+                    window->openFile(p);
+            });
+            // Open with SwordGraph for folders
+            menu.addAction(QIcon::fromTheme("view-process-tree"), "Open with SwordGraph",
+                           window, [path, window]() {
+                QProcess::startDetached("sh", {"-c",
+                    QString("cd '%1' && python3 ~/.config/animated-wallpaper/graph-edit.sh 2>/dev/null || true").arg(path)});
+            });
+            menu.addAction(QIcon::fromTheme("utilities-terminal"), "Open Terminal Here",
+                           window, &MainWindow::openTerminalHere);
+        } else {
+            menu.addAction(QIcon::fromTheme("document-open"), "Open", window, [window, selectedPaths]() {
+                for (const auto &p : selectedPaths)
+                    window->openFile(p);
+            });
 
-        if (selectedPaths.size() == 1 && fi.isFile()) {
+            // Open With submenu for files
             const auto handlers = appsForFile(path);
             auto *openWith = menu.addMenu(QIcon::fromTheme("document-open"), "Open With");
 
-            // Add matching apps
             for (const AppHandler &app : handlers) {
                 QString label = app.name;
                 if (app.isDefault)
@@ -72,7 +87,6 @@ void showContextMenu(MainWindow *window, const QPoint &globalPos,
                 });
             }
 
-            // Separator before Other
             if (!handlers.isEmpty())
                 openWith->addSeparator();
 
@@ -82,7 +96,6 @@ void showContextMenu(MainWindow *window, const QPoint &globalPos,
             QObject::connect(otherAct, &QAction::triggered, window, [path, window]() {
                 const auto allApps = allInstalledApps();
                 if (allApps.isEmpty()) {
-                    // Fallback to manual command entry
                     bool ok;
                     QString cmd = QInputDialog::getText(
                         window, "Open With", "Command:",
@@ -95,7 +108,6 @@ void showContextMenu(MainWindow *window, const QPoint &globalPos,
                     return;
                 }
 
-                // Build list with icons
                 QStringList items;
                 for (const auto &app : allApps)
                     items.append(app.name);
@@ -119,12 +131,16 @@ void showContextMenu(MainWindow *window, const QPoint &globalPos,
 
         menu.addAction(QIcon::fromTheme("document-preview"), "Preview",
                        window, &MainWindow::previewSelected);
-        menu.addAction(QIcon::fromTheme("utilities-terminal"), "Open Terminal Here",
-                       window, &MainWindow::openTerminalHere);
-        menu.addAction(QIcon::fromTheme("bookmark-new"), "Add Bookmark",
-                       window, &MainWindow::bookmarkSelection);
 
         menu.addSeparator();
+
+        // Batch operations
+        if (selectedPaths.size() > 1) {
+            menu.addAction(QIcon::fromTheme("edit-select-all"), QString("Select All (%1 items)")
+                           .arg(selectedPaths.size()), window, &MainWindow::selectAll);
+            menu.addSeparator();
+        }
+
         menu.addAction(QIcon::fromTheme("edit-cut"), "Cut",
                        window, &MainWindow::cutSelection);
         menu.addAction(QIcon::fromTheme("edit-copy"), "Copy",
@@ -133,10 +149,31 @@ void showContextMenu(MainWindow *window, const QPoint &globalPos,
                        window, &MainWindow::pasteClipboard);
 
         menu.addSeparator();
+
         if (selectedPaths.size() == 1) {
             menu.addAction(QIcon::fromTheme("edit-rename"), "Rename",
                            window, &MainWindow::renameSelected);
+        } else if (selectedPaths.size() > 1) {
+            menu.addAction(QIcon::fromTheme("edit-rename"), "Batch Rename…",
+                           window, [window, selectedPaths]() {
+                // Simple batch rename: add prefix
+                bool ok;
+                QString prefix = QInputDialog::getText(
+                    window, "Batch Rename", "Add prefix to filenames:",
+                    QLineEdit::Normal, QString(), &ok);
+                if (ok && !prefix.isEmpty()) {
+                    for (const auto &p : selectedPaths) {
+                        QFileInfo fi(p);
+                        QString newName = prefix + fi.fileName();
+                        QString newPath = fi.absolutePath() + "/" + newName;
+                        if (!QFileInfo::exists(newPath))
+                            QFile::rename(p, newPath);
+                    }
+                    window->refresh();
+                }
+            });
         }
+
         menu.addAction(QIcon::fromTheme("edit-delete"), "Delete",
                        window, &MainWindow::deleteSelection);
 
@@ -152,7 +189,15 @@ void showContextMenu(MainWindow *window, const QPoint &globalPos,
 
                 QString sizeStr;
                 if (info.isDir()) {
-                    sizeStr = "Directory";
+                    // Calculate directory size
+                    qint64 totalSize = 0;
+                    QDir dir(path);
+                    for (const auto &entry : dir.entryInfoList(QDir::Files | QDir::NoSymLinks))
+                        totalSize += entry.size();
+                    if (totalSize < 1024) sizeStr = QString("%1 bytes").arg(totalSize);
+                    else if (totalSize < 1024 * 1024) sizeStr = QString("%1 KB").arg(totalSize / 1024.0, 0, 'f', 1);
+                    else sizeStr = QString("%1 MB").arg(totalSize / (1024.0 * 1024), 0, 'f', 1);
+                    sizeStr += " (contents)";
                 } else {
                     qint64 s = info.size();
                     if (s < 1024) sizeStr = QString("%1 bytes").arg(s);
@@ -167,13 +212,15 @@ void showContextMenu(MainWindow *window, const QPoint &globalPos,
                     "<b>Size:</b> %3<br>"
                     "<b>Type:</b> %4<br>"
                     "<b>Modified:</b> %5<br>"
-                    "<b>Permissions:</b> %6"
+                    "<b>Permissions:</b> %6<br>"
+                    "<b>Owner:</b> %7"
                 ).arg(info.fileName().toHtmlEscaped())
                  .arg(info.absoluteFilePath().toHtmlEscaped())
                  .arg(sizeStr)
                  .arg(info.isDir() ? "Folder" : mdb.mimeTypeForFile(info).name())
                  .arg(info.lastModified().toString("yyyy-MM-dd HH:mm:ss"))
-                 .arg(perms);
+                 .arg(perms)
+                 .arg(info.owner());
 
                 QMessageBox box(window);
                 box.setWindowTitle("Properties");

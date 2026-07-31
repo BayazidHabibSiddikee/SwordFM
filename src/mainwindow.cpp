@@ -82,6 +82,16 @@ MainWindow::MainWindow(const QString &startPath, QWidget *parent)
     new QShortcut(QKeySequence("Space"), this, [this]() { previewSelected(); });
     new QShortcut(QKeySequence("F3"), this, [this]() { previewSelected(); });
 
+    // Yazi-like shortcuts
+    new QShortcut(QKeySequence("h"), this, [this]() { navigateUp(); });
+    new QShortcut(QKeySequence("j"), this, [this]() { selectNext(); });
+    new QShortcut(QKeySequence("k"), this, [this]() { selectPrev(); });
+    new QShortcut(QKeySequence("l"), this, [this]() { openSelected(); });
+    new QShortcut(QKeySequence("g"), this, [this]() { navigateHome(); });
+    new QShortcut(QKeySequence("G"), this, [this]() { navigateTo("/"); });
+    new QShortcut(QKeySequence("~"), this, [this]() { navigateHome(); });
+    new QShortcut(QKeySequence("."), this, [this]() { toggleHidden(); });
+
     if (isHiddenSystemRoot(m_currentPath))
         m_currentPath = QDir::homePath();
     applyDirectory(m_currentPath, false);
@@ -569,4 +579,40 @@ void MainWindow::updateStatusBar() {
 void MainWindow::updateNavButtons() {
     m_toolbar->setCanGoBack(!m_backStack.isEmpty());
     m_toolbar->setCanGoForward(!m_forwardStack.isEmpty());
+}
+
+void MainWindow::selectNext() {
+    auto *view = m_fileView->currentView();
+    QModelIndex current = view->currentIndex();
+    QModelIndex next;
+    if (current.isValid())
+        next = view->model()->index(current.row() + 1, current.column(), current.parent());
+    else
+        next = view->model()->index(0, 0, view->rootIndex());
+
+    if (next.isValid()) {
+        view->setCurrentIndex(next);
+        view->selectionModel()->select(next, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+    }
+}
+
+void MainWindow::selectPrev() {
+    auto *view = m_fileView->currentView();
+    QModelIndex current = view->currentIndex();
+    QModelIndex prev;
+    if (current.isValid() && current.row() > 0)
+        prev = view->model()->index(current.row() - 1, current.column(), current.parent());
+    else
+        prev = view->model()->index(0, 0, view->rootIndex());
+
+    if (prev.isValid()) {
+        view->setCurrentIndex(prev);
+        view->selectionModel()->select(prev, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+    }
+}
+
+void MainWindow::openSelected() {
+    auto paths = m_fileView->selectedPaths();
+    if (!paths.isEmpty())
+        openFile(paths.first());
 }
