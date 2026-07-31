@@ -43,3 +43,6 @@ QStringList preferredPdfReaders();
 
 // Known archiver desktop ids / names for fallback ordering.
 QStringList preferredArchivers();
+
+// List all installed applications (scans .desktop files).
+QList<AppHandler> allInstalledApps();

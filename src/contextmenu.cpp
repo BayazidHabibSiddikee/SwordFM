@@ -55,52 +55,66 @@ void showContextMenu(MainWindow *window, const QPoint &globalPos,
 
         if (selectedPaths.size() == 1 && fi.isFile()) {
             const auto handlers = appsForFile(path);
-            if (!handlers.isEmpty()) {
-                auto *openWith = menu.addMenu(QIcon::fromTheme("document-open"), "Open With");
-                for (const AppHandler &app : handlers) {
-                    QString label = app.name;
-                    if (app.isDefault)
-                        label += " (default)";
-                    QAction *act = openWith->addAction(app.icon(), label);
-                    AppHandler launched = app;
-                    QObject::connect(act, &QAction::triggered, window, [launched, path, window]() {
-                        if (!openWithApp(launched, path)) {
-                            QMessageBox::warning(window, "SwordFM",
-                                                 QString("Could not launch %1").arg(launched.name));
-                        }
-                    });
-                }
-                openWith->addSeparator();
-                QAction *otherAct = openWith->addAction(
-                    QIcon::fromTheme("application-x-executable"), "Other Application...");
-                QObject::connect(otherAct, &QAction::triggered, window, [path, window]() {
-                    bool ok;
-                    QString cmd = QInputDialog::getText(
-                        window, "Open With", "Command:",
-                        QLineEdit::Normal, QString(), &ok);
-                    if (ok && !cmd.isEmpty()) {
-                        cmd.replace("%f", path);
-                        cmd.replace("%u", QUrl::fromLocalFile(path).toString());
-                        QProcess::startDetached("sh", {"-c", cmd});
-                    }
-                });
-            } else {
-                // No handlers found, still offer "Other Application..."
-                auto *openWith = menu.addMenu(QIcon::fromTheme("document-open"), "Open With");
-                QAction *otherAct = openWith->addAction(
-                    QIcon::fromTheme("application-x-executable"), "Other Application...");
-                QObject::connect(otherAct, &QAction::triggered, window, [path, window]() {
-                    bool ok;
-                    QString cmd = QInputDialog::getText(
-                        window, "Open With", "Command:",
-                        QLineEdit::Normal, QString(), &ok);
-                    if (ok && !cmd.isEmpty()) {
-                        cmd.replace("%f", path);
-                        cmd.replace("%u", QUrl::fromLocalFile(path).toString());
-                        QProcess::startDetached("sh", {"-c", cmd});
+            auto *openWith = menu.addMenu(QIcon::fromTheme("document-open"), "Open With");
+
+            // Add matching apps
+            for (const AppHandler &app : handlers) {
+                QString label = app.name;
+                if (app.isDefault)
+                    label += " (default)";
+                QAction *act = openWith->addAction(app.icon(), label);
+                AppHandler launched = app;
+                QObject::connect(act, &QAction::triggered, window, [launched, path, window]() {
+                    if (!openWithApp(launched, path)) {
+                        QMessageBox::warning(window, "SwordFM",
+                                             QString("Could not launch %1").arg(launched.name));
                     }
                 });
             }
+
+            // Separator before Other
+            if (!handlers.isEmpty())
+                openWith->addSeparator();
+
+            // Other Application... with full app list
+            QAction *otherAct = openWith->addAction(
+                QIcon::fromTheme("application-x-executable"), "Other Application...");
+            QObject::connect(otherAct, &QAction::triggered, window, [path, window]() {
+                const auto allApps = allInstalledApps();
+                if (allApps.isEmpty()) {
+                    // Fallback to manual command entry
+                    bool ok;
+                    QString cmd = QInputDialog::getText(
+                        window, "Open With", "Command:",
+                        QLineEdit::Normal, QString(), &ok);
+                    if (ok && !cmd.isEmpty()) {
+                        cmd.replace("%f", path);
+                        cmd.replace("%u", QUrl::fromLocalFile(path).toString());
+                        QProcess::startDetached("sh", {"-c", cmd});
+                    }
+                    return;
+                }
+
+                // Build list with icons
+                QStringList items;
+                for (const auto &app : allApps)
+                    items.append(app.name);
+
+                bool ok;
+                QString choice = QInputDialog::getItem(
+                    window, "Open With", "Select application:", items, 0, false, &ok);
+                if (ok && !choice.isEmpty()) {
+                    for (const auto &app : allApps) {
+                        if (app.name == choice) {
+                            if (!openWithApp(app, path)) {
+                                QMessageBox::warning(window, "SwordFM",
+                                                     QString("Could not launch %1").arg(app.name));
+                            }
+                            break;
+                        }
+                    }
+                }
+            });
         }
 
         menu.addAction(QIcon::fromTheme("document-preview"), "Preview",

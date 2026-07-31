@@ -267,6 +267,51 @@ QStringList preferredArchivers() {
     };
 }
 
+QList<AppHandler> allInstalledApps() {
+    QList<AppHandler> apps;
+    QSet<QString> seen;
+
+    for (const auto &dir : desktopSearchPaths()) {
+        QDir d(dir);
+        const auto entries = d.entryList({"*.desktop"}, QDir::Files);
+        for (const auto &e : entries) {
+            if (seen.contains(e)) continue;
+            const QString full = d.absoluteFilePath(e);
+            AppHandler app = parseDesktopFile(full, e);
+            if (app.name.isEmpty() || app.exec.isEmpty()) continue;
+            // Skip hidden/no-display/terminal apps
+            QFile f(full);
+            bool skip = false;
+            if (f.open(QIODevice::ReadOnly | QIODevice::Text)) {
+                bool inDesktop = false;
+                while (!f.atEnd()) {
+                    QString line = QString::fromUtf8(f.readLine()).trimmed();
+                    if (line.startsWith('[')) {
+                        inDesktop = (line == "[Desktop Entry]");
+                        continue;
+                    }
+                    if (!inDesktop) continue;
+                    if (line == "NoDisplay=true" || line == "Hidden=true"
+                        || line == "Terminal=true") {
+                        skip = true;
+                        break;
+                    }
+                }
+            }
+            if (skip) continue;
+            seen.insert(e);
+            apps.append(app);
+        }
+    }
+
+    // Sort by name
+    std::sort(apps.begin(), apps.end(), [](const AppHandler &a, const AppHandler &b) {
+        return a.name.toLower() < b.name.toLower();
+    });
+
+    return apps;
+}
+
 static bool looksLikeBrowser(const QString &desktopId) {
     const QString id = desktopId.toLower();
     return id.contains("firefox") || id.contains("chrome") || id.contains("chromium")

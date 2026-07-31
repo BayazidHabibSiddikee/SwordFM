@@ -10,9 +10,6 @@ int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
     app.setApplicationName("SwordFM");
     app.setApplicationDisplayName("SwordFM");
-    app.setOrganizationName("swordfm");
-    app.setDesktopFileName("swordfm");
-    app.setApplicationVersion("1.0");
 
     if (QStyleFactory::keys().contains("Fusion", Qt::CaseInsensitive))
         app.setStyle(QStyleFactory::create("Fusion"));
