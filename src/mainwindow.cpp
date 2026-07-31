@@ -307,10 +307,30 @@ void MainWindow::openFile(const QString &path) {
         applyDirectory(path, true);
         return;
     }
-    // Always use XDG/desktop handlers (Thunar-style), especially for video
+    // Try default handler first
     if (!openWithDefault(path)) {
-        QMessageBox::warning(this, "SwordFM",
-                             QString("No application found to open:\n%1").arg(fi.fileName()));
+        // Show Open With dialog as fallback
+        const auto handlers = appsForFile(path);
+        if (!handlers.isEmpty()) {
+            QStringList items;
+            for (const auto &h : handlers)
+                items.append(h.name);
+
+            bool ok;
+            QString choice = QInputDialog::getItem(
+                this, "Open With", "Select application:", items, 0, false, &ok);
+            if (ok && !choice.isEmpty()) {
+                for (const auto &h : handlers) {
+                    if (h.name == choice) {
+                        openWithApp(h, path);
+                        break;
+                    }
+                }
+            }
+        } else {
+            QMessageBox::warning(this, "SwordFM",
+                                 QString("No application found to open:\n%1").arg(fi.fileName()));
+        }
     }
 }
 

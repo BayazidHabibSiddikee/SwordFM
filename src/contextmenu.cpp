@@ -11,6 +11,10 @@
 #include <QIcon>
 #include <QDateTime>
 #include <QMimeDatabase>
+#include <QInputDialog>
+#include <QLineEdit>
+#include <QProcess>
+#include <QUrl>
 
 void showContextMenu(MainWindow *window, const QPoint &globalPos,
                      const QStringList &selectedPaths, const QString &currentPath)
@@ -66,6 +70,36 @@ void showContextMenu(MainWindow *window, const QPoint &globalPos,
                         }
                     });
                 }
+                openWith->addSeparator();
+                QAction *otherAct = openWith->addAction(
+                    QIcon::fromTheme("application-x-executable"), "Other Application...");
+                QObject::connect(otherAct, &QAction::triggered, window, [path, window]() {
+                    bool ok;
+                    QString cmd = QInputDialog::getText(
+                        window, "Open With", "Command:",
+                        QLineEdit::Normal, QString(), &ok);
+                    if (ok && !cmd.isEmpty()) {
+                        cmd.replace("%f", path);
+                        cmd.replace("%u", QUrl::fromLocalFile(path).toString());
+                        QProcess::startDetached("sh", {"-c", cmd});
+                    }
+                });
+            } else {
+                // No handlers found, still offer "Other Application..."
+                auto *openWith = menu.addMenu(QIcon::fromTheme("document-open"), "Open With");
+                QAction *otherAct = openWith->addAction(
+                    QIcon::fromTheme("application-x-executable"), "Other Application...");
+                QObject::connect(otherAct, &QAction::triggered, window, [path, window]() {
+                    bool ok;
+                    QString cmd = QInputDialog::getText(
+                        window, "Open With", "Command:",
+                        QLineEdit::Normal, QString(), &ok);
+                    if (ok && !cmd.isEmpty()) {
+                        cmd.replace("%f", path);
+                        cmd.replace("%u", QUrl::fromLocalFile(path).toString());
+                        QProcess::startDetached("sh", {"-c", cmd});
+                    }
+                });
             }
         }
 
