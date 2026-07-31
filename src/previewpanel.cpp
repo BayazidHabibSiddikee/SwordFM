@@ -12,6 +12,8 @@
 #include <QImageReader>
 #include <QTextOption>
 #include <QTextCursor>
+#include <QProcess>
+#include <QDir>
 
 static const qint64 kMaxTextBytes = 2 * 1024 * 1024; // 2 MB
 
@@ -246,4 +248,159 @@ void PreviewPanel::previewFile(const QString &path) {
     }
 
     showBinaryStub(path, err.isEmpty() ? "No preview available" : err);
+}
+
+void PreviewPanel::previewFolderGraph(const QString &folderPath) {
+    QFileInfo fi(folderPath);
+    if (!fi.exists() || !fi.isDir()) {
+        showEmpty();
+        return;
+    }
+
+    m_path = folderPath;
+    m_title->setText("GRAPH: " + fi.fileName());
+
+    // Generate graph data
+    QStringList nodes;
+    QStringList edges;
+    int nodeId = 0;
+
+    // Root folder node
+    nodes.append(QString("  %1 [label=\"%2\", shape=box, style=filled, "
+                         "fillcolor=\"#61afef25\", color=\"#61afef\"];")
+                     .arg(nodeId).arg(fi.fileName()));
+    int rootId = nodeId;
+    nodeId++;
+
+    // Scan folder (max 2 levels deep)
+    QDir dir(folderPath);
+    dir.setFilter(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
+    dir.setSorting(QDir::Name | QDir::DirsFirst);
+
+    QFileInfoList entries = dir.entryInfoList();
+    int maxEntries = qMin(entries.size(), 50);
+
+    for (int i = 0; i < maxEntries; ++i) {
+        const QFileInfo &entry = entries[i];
+        if (entry.fileName().startsWith('.') && entry.fileName() != ".git")
+            continue;
+
+        QString ext = entry.suffix().toLower();
+        QString color;
+        if (entry.isDir())
+            color = "#61afef";
+        else if (ext == "py" || ext == "js" || ext == "ts")
+            color = "#e5c07b";
+        else if (ext == "cpp" || ext == "c" || ext == "h" || ext == "rs")
+            color = "#61afef";
+        else if (ext == "md" || ext == "txt")
+            color = "#98c379";
+        else if (ext == "png" || ext == "jpg" || ext == "gif")
+            color = "#e06c75";
+        else
+            color = "#abb2bf";
+
+        QString label = entry.fileName();
+        if (label.length() > 15)
+            label = label.left(12) + "...";
+
+        QString shape = entry.isDir() ? "box" : "ellipse";
+        QString fill = entry.isDir() ? "#61afef25" : color + "25";
+
+        nodes.append(QString("  %1 [label=\"%2\", shape=%3, style=filled, "
+                             "fillcolor=\"%4\", color=\"%5\"];")
+                         .arg(nodeId).arg(label.toHtmlEscaped())
+                         .arg(shape).arg(fill).arg(color));
+
+        edges.append(QString("  %1 -> %2;").arg(rootId).arg(nodeId));
+        nodeId++;
+
+        // Scan subdirectories one level
+        if (entry.isDir()) {
+            QDir subDir(entry.absoluteFilePath());
+            subDir.setFilter(QDir::Files | QDir::NoDotAndDotDot);
+            subDir.setSorting(QDir::Name);
+            QFileInfoList subEntries = subDir.entryInfoList();
+            int subMax = qMin(subEntries.size(), 10);
+            for (int j = 0; j < subMax; ++j) {
+                const QFileInfo &sub = subEntries[j];
+                QString subExt = sub.suffix().toLower();
+                QString subColor;
+                if (subExt == "py" || subExt == "js") subColor = "#e5c07b";
+                else if (subExt == "cpp" || subExt == "h") subColor = "#61afef";
+                else if (subExt == "md" || subExt == "txt") subColor = "#98c379";
+                else subColor = "#abb2bf";
+
+                QString subLabel = sub.fileName();
+                if (subLabel.length() > 12) subLabel = subLabel.left(9) + "...";
+
+                nodes.append(QString("  %1 [label=\"%2\", shape=ellipse, style=filled, "
+                                     "fillcolor=\"%325\", color=\"%3\"];")
+                                 .arg(nodeId).arg(subLabel.toHtmlEscaped())
+                                 .arg(subColor));
+                edges.append(QString("  %1 -> %2;").arg(nodeId - 1).arg(nodeId));
+                nodeId++;
+            }
+        }
+    }
+
+    // Build Graphviz dot
+    QString dot = "digraph G {\n"
+                  "  layout=neato;\n"
+                  "  overlap=false;\n"
+                  "  splines=ortho;\n"
+                  "  bgcolor=\"transparent\";\n"
+                  "  ratio=fill;\n"
+                  "  size=\"4,4\";\n"
+                  "  node [fontname=\"DejaVu Sans Mono\", fontsize=10];\n"
+                  "  edge [color=\"#3e4451\", arrowsize=0.5];\n\n";
+
+    for (const auto &n : nodes)
+        dot += n + "\n";
+    dot += "\n";
+    for (const auto &e : edges)
+        dot += e + "\n";
+    dot += "}\n";
+
+    // Save and render
+    QString tmpDir = QDir::tempPath();
+    QString dotPath = tmpDir + "/swordfm_graph.dot";
+    QString pngPath = tmpDir + "/swordfm_graph.png";
+
+    QFile dotFile(dotPath);
+    if (dotFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        dotFile.write(dot.toUtf8());
+        dotFile.close();
+    }
+
+    // Render with Graphviz
+    QProcess proc;
+    proc.start("neato", {"-Tpng", "-o", pngPath, dotPath});
+    proc.waitForFinished(5000);
+
+    if (QFileInfo::exists(pngPath)) {
+        QPixmap px(pngPath);
+        if (!px.isNull()) {
+            int maxW = qMax(200, width() - 24);
+            int maxH = qMax(200, height() - 60);
+            if (px.width() > maxW || px.height() > maxH)
+                px = px.scaled(maxW, maxH, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+
+            m_imageLabel->setPixmap(px);
+            m_imageLabel->adjustSize();
+            m_stack->setCurrentWidget(m_imageScroll);
+
+            // Clean up
+            QFile::remove(dotPath);
+            QFile::remove(pngPath);
+            return;
+        }
+    }
+
+    // Fallback: show dot source
+    m_textView->setPlainText(dot);
+    m_stack->setCurrentWidget(m_textView);
+
+    QFile::remove(dotPath);
+    QFile::remove(pngPath);
 }

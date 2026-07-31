@@ -43,6 +43,7 @@ public slots:
     void selectNext();
     void selectPrev();
     void openSelected();
+    void showFolderGraph(const QString &folderPath);
 
 private slots:
     void onFileActivated(const QModelIndex &index);

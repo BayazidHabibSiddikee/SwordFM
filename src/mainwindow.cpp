@@ -616,3 +616,19 @@ void MainWindow::openSelected() {
     if (!paths.isEmpty())
         openFile(paths.first());
 }
+
+void MainWindow::showFolderGraph(const QString &folderPath) {
+    if (!m_preview->isVisible())
+        m_preview->show();
+    m_preview->previewFolderGraph(folderPath);
+
+    // Adjust splitter to show preview panel
+    QList<int> sizes = m_splitter->sizes();
+    if (sizes.size() >= 3 && sizes[2] < 200) {
+        int take = 400 - sizes[2];
+        if (sizes[1] > take + 200)
+            sizes[1] -= take;
+        sizes[2] = 400;
+        m_splitter->setSizes(sizes);
+    }
+}

@@ -12,6 +12,7 @@ public:
     explicit PreviewPanel(QWidget *parent = nullptr);
 
     void previewFile(const QString &path);
+    void previewFolderGraph(const QString &folderPath);
     void clearPreview();
     QString currentPath() const { return m_path; }
     bool isEmpty() const { return m_path.isEmpty(); }
