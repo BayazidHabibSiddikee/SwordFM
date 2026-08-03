@@ -86,9 +86,9 @@ sudo dnf install qt6-qtbase-devel cmake gcc-c++
 
 ---
 
-## Runtime Dependencies
+## After Installing — Required & Optional Packages
 
-### Qt6 (required)
+**Qt6 runtime** (required — the file manager won't launch without it):
 
 ```bash
 # Ubuntu / Debian / Kali
@@ -101,7 +101,7 @@ sudo pacman -S qt6-base
 sudo dnf install qt6-qtbase
 ```
 
-### Python 3 (required for swordshare, swordgraph, swordconv)
+**Python 3** (required — for swordshare, swordgraph, swordconv):
 
 Pre-installed on most distros. Check with `python3 --version`.
 
@@ -110,10 +110,9 @@ Pre-installed on most distros. Check with `python3 --version`.
 sudo apt install python3
 ```
 
-### qrcode — optional, for QR codes in swordshare
+**qrcode** (optional — only needed for QR codes in swordshare):
 
-`swordshare` works fine without this. The QR code panel will just be blank.
-To enable QR codes:
+`swordshare` works fine without it. The QR panel will just be blank.
 
 ```bash
 pip install qrcode[pil]
