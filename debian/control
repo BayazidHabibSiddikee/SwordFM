@@ -1,0 +1,12 @@
+Package: swordfm
+Version: 1.0.0
+Section: utils
+Priority: optional
+Architecture: amd64
+Depends: libqt6widgets6 | libqt6widgets6t64, libqt6core6 | libqt6core6t64, python3
+Maintainer: BayazidHabibSiddikee <your@email.com>
+Description: SwordFM — Thunar-like Qt6 file manager
+ A fast, keyboard-driven file manager built in C++20 with Qt6.
+ Features One Dark theme, rclone cloud mounts, live preview panel,
+ full keyboard navigation, LAN file sharing (swordshare),
+ folder graph visualization (swordgraph), and document conversion (swordconv).
