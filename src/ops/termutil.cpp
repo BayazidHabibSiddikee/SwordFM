@@ -1,4 +1,4 @@
-#include "termutil.h"
+#include "ops/termutil.h"
 
 #include <QFileInfo>
 #include <QMimeDatabase>

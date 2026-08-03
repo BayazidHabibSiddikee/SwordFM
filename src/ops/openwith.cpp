@@ -1,4 +1,4 @@
-#include "openwith.h"
+#include "ops/openwith.h"
 
 #include <QDir>
 #include <QFile>
@@ -189,129 +189,6 @@ QStringList preferredVideoPlayers() {
     };
 }
 
-QStringList preferredImageViewers() {
-    return {
-        "eog.desktop",
-        "org.gnome.eog.desktop",
-        "feh.desktop",
-        "sxiv.desktop",
-        "imv.desktop",
-        "nsxiv.desktop",
-        "display.desktop",
-        "gwenview.desktop",
-        "org.kde.gwenview.desktop",
-        "ristretto.desktop",
-        "nomacs.desktop",
-    };
-}
-
-QStringList preferredTextEditors() {
-    return {
-        "org.gnome.TextEditor.desktop",
-        "org.gnome.gedit.desktop",
-        "gedit.desktop",
-        "kate.desktop",
-        "org.kde.kate.desktop",
-        "kwrite.desktop",
-        "org.kde.kwrite.desktop",
-        "xfce4-terminal.desktop",
-        "org.xfce.Terminal.desktop",
-        "konsole.desktop",
-        "org.kde.konsole.desktop",
-        "io.github.nickvision.paragraph.desktop",
-        "notepadqq.desktop",
-        "sublime_text.desktop",
-        "code.desktop",
-        "codium.desktop",
-        "vscodium.desktop",
-        "helix.desktop",
-    };
-}
-
-QStringList preferredAudioPlayers() {
-    return {
-        "audacious.desktop",
-        "rhythmbox.desktop",
-        "org.gnome.Rhythmbox.desktop",
-        "lollypop.desktop",
-        "org.gnome.Lollypop.desktop",
-        "playerctl.desktop",
-        "cmus.desktop",
-        "spotify.desktop",
-        "io.github.quodlibet.QuodLibet.desktop",
-    };
-}
-
-QStringList preferredPdfReaders() {
-    return {
-        "evince.desktop",
-        "org.gnome.Evince.desktop",
-        "okular.desktop",
-        "org.kde.okular.desktop",
-        "zathura.desktop",
-        "mupdf.desktop",
-        "atril.desktop",
-        "xreader.desktop",
-    };
-}
-
-QStringList preferredArchivers() {
-    return {
-        "file-roller.desktop",
-        "org.gnome.FileRoller.desktop",
-        "engrampa.desktop",
-        "org.mate.FileRoller.desktop",
-        "ark.desktop",
-        "org.kde.ark.desktop",
-        "xarchiver.desktop",
-    };
-}
-
-QList<AppHandler> allInstalledApps() {
-    QList<AppHandler> apps;
-    QSet<QString> seen;
-
-    for (const auto &dir : desktopSearchPaths()) {
-        QDir d(dir);
-        const auto entries = d.entryList({"*.desktop"}, QDir::Files);
-        for (const auto &e : entries) {
-            if (seen.contains(e)) continue;
-            const QString full = d.absoluteFilePath(e);
-            AppHandler app = parseDesktopFile(full, e);
-            if (app.name.isEmpty() || app.exec.isEmpty()) continue;
-            // Skip hidden/no-display/terminal apps
-            QFile f(full);
-            bool skip = false;
-            if (f.open(QIODevice::ReadOnly | QIODevice::Text)) {
-                bool inDesktop = false;
-                while (!f.atEnd()) {
-                    QString line = QString::fromUtf8(f.readLine()).trimmed();
-                    if (line.startsWith('[')) {
-                        inDesktop = (line == "[Desktop Entry]");
-                        continue;
-                    }
-                    if (!inDesktop) continue;
-                    if (line == "NoDisplay=true" || line == "Hidden=true"
-                        || line == "Terminal=true") {
-                        skip = true;
-                        break;
-                    }
-                }
-            }
-            if (skip) continue;
-            seen.insert(e);
-            apps.append(app);
-        }
-    }
-
-    // Sort by name
-    std::sort(apps.begin(), apps.end(), [](const AppHandler &a, const AppHandler &b) {
-        return a.name.toLower() < b.name.toLower();
-    });
-
-    return apps;
-}
-
 static bool looksLikeBrowser(const QString &desktopId) {
     const QString id = desktopId.toLower();
     return id.contains("firefox") || id.contains("chrome") || id.contains("chromium")
@@ -337,22 +214,6 @@ QList<AppHandler> appsForFile(const QString &path) {
     QMimeDatabase db;
     const QString mime = db.mimeTypeForFile(path).name();
     const bool isVideo = mime.startsWith("video/");
-    const bool isImage = mime.startsWith("image/");
-    const bool isAudio = mime.startsWith("audio/");
-    const bool isText = mime.startsWith("text/") || mime == "application/json"
-        || mime == "application/xml" || mime == "application/javascript"
-        || mime == "application/x-shellscript" || mime == "application/x-perl"
-        || mime == "application/x-python" || mime == "application/x-c++"
-        || mime == "application/x-java" || mime == "application/x-rust"
-        || mime == "application/x-go" || mime == "application/xmake"
-        || mime == "application/x-cmake" || mime == "application/toml"
-        || mime == "application/x-yaml" || mime == "application/x-toml";
-    const bool isPdf = mime == "application/pdf";
-    const bool isArchive = mime.contains("zip") || mime.contains("tar")
-        || mime.contains("gzip") || mime.contains("bzip2")
-        || mime.contains("x-xz") || mime.contains("x-7z")
-        || mime.contains("x-rar") || mime.contains("x-cpio")
-        || mime.contains("x-deb") || mime.contains("x-rpm");
 
     auto addId = [&](const QString &desktopId, bool asDefault = false) {
         if (desktopId.isEmpty() || seen.contains(desktopId)) {
@@ -378,24 +239,9 @@ QList<AppHandler> appsForFile(const QString &path) {
     for (int i = 0; i < fromMimeapps.size(); ++i)
         addId(fromMimeapps[i], i == 0);
 
-    // 2) Inject known apps by category near the top
+    // 2) For videos, inject known players near the top
     if (isVideo) {
         for (const auto &id : preferredVideoPlayers())
-            addId(id, false);
-    } else if (isImage) {
-        for (const auto &id : preferredImageViewers())
-            addId(id, false);
-    } else if (isAudio) {
-        for (const auto &id : preferredAudioPlayers())
-            addId(id, false);
-    } else if (isText) {
-        for (const auto &id : preferredTextEditors())
-            addId(id, false);
-    } else if (isPdf) {
-        for (const auto &id : preferredPdfReaders())
-            addId(id, false);
-    } else if (isArchive) {
-        for (const auto &id : preferredArchivers())
             addId(id, false);
     }
 

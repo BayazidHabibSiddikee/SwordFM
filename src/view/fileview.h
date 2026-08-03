@@ -8,8 +8,10 @@
 #include <QModelIndex>
 #include <QStringList>
 #include <QContextMenuEvent>
+#include <QDate>
 
 class FileFilterProxy;
+class SearchModel;
 
 class FileView : public QWidget {
     Q_OBJECT
@@ -25,11 +27,23 @@ public:
     QStringList selectedPaths() const;
     QModelIndex currentIndex() const; // source index
     QAbstractItemView *currentView() const;
+    FileFilterProxy *proxy() const { return m_proxy; }
+
+    // Recursive results replace the directory listing until cleared. The walk
+    // runs on a worker thread, so rows arrive after this returns — watch
+    // searchProgress/searchFinished rather than expecting a count here.
+    void startSearch(const QString &root, int typeFilter,
+                     const QDate &from, const QDate &to, bool includeHidden);
+    void clearSearchResults();
+    bool inSearchMode() const { return m_searchMode; }
 
 signals:
     void fileActivated(const QModelIndex &sourceIndex);
+    void pathActivated(const QString &path);
     void selectionChanged();
     void contextMenuRequested(const QPoint &globalPos);
+    void searchProgress(int found);
+    void searchFinished(int found, bool truncated);
 
 private slots:
     void onDoubleClicked(const QModelIndex &proxyIndex);
@@ -41,13 +55,17 @@ protected:
 private:
     void setupDetailsView();
     void setupIconView();
+    void setupSearchView();
     void wireView(QAbstractItemView *view);
     QModelIndex toSource(const QModelIndex &proxyIndex) const;
 
     QFileSystemModel *m_fsModel = nullptr;
     FileFilterProxy *m_proxy = nullptr;
+    SearchModel *m_searchModel = nullptr;
     QStackedWidget *m_stack = nullptr;
     QTreeView *m_detailsView = nullptr;
     QListView *m_iconView = nullptr;
+    QTreeView *m_searchView = nullptr;
     bool m_detailsMode = true;
+    bool m_searchMode = false;
 };

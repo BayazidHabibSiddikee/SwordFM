@@ -1,5 +1,6 @@
 #pragma once
 #include <QMainWindow>
+#include <QDate>
 #include <QSplitter>
 #include <QStack>
 #include <QKeyEvent>
@@ -17,6 +18,9 @@ class MainWindow : public QMainWindow {
 public:
     explicit MainWindow(const QString &startPath = QString(), QWidget *parent = nullptr);
 
+    int markCount() const;
+    bool allMarked(const QStringList &paths) const;
+
 public slots:
     void navigateTo(const QString &path);
     void navigateUp();
@@ -26,6 +30,8 @@ public slots:
     void refresh();
     void openFile(const QString &path);
     void previewSelected();
+    void graphSelected();
+    void graphCurrent();
     void selectAll();
     void copySelection();
     void cutSelection();
@@ -40,23 +46,31 @@ public slots:
     void bookmarkCurrent();
     void bookmarkSelection();
     void openTerminalHere();
-    void selectNext();
-    void selectPrev();
-    void openSelected();
-    void showFolderGraph(const QString &folderPath);
+    void compressSelection(const QString &formatId);
+    void convertSelection(const QString &formatId);
+    void extractSelectionHere();
+    void extractSelectionToFolder();
+    void toggleMarkSelection();
+    void clearMarks();
 
 private slots:
     void onFileActivated(const QModelIndex &index);
     void onSelectionChanged();
+    void onSearchProgress(int found);
+    void onSearchFinished(int found, bool truncated);
 
 private:
     void setupUi();
     void setupMenus();
+    void applyTypeDateFilter();
     void updateStatusBar();
     void updateNavButtons();
     void applyDirectory(const QString &path, bool pushHistory);
     void setClipboard(const QStringList &paths, bool cut);
     void showPreview(const QString &path);
+    void widenPreviewPane();
+    void graphFolder(const QString &path);
+    QStringList actionPaths() const;
     int currentItemCount() const;
 
     ToolBar *m_toolbar = nullptr;
@@ -67,6 +81,11 @@ private:
     QSplitter *m_splitter = nullptr;
 
     QString m_currentPath;
+    QString m_pendingRoot;
+    QString m_searchLabel;
+    int m_typeFilter = 0;
+    QDate m_dateFrom;
+    QDate m_dateTo;
     QStack<QString> m_backStack;
     QStack<QString> m_forwardStack;
     QFileSystemModel *m_fsModel = nullptr;

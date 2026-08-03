@@ -1,5 +1,5 @@
-#include "statusbar.h"
-#include "theme.h"
+#include "panel/statusbar.h"
+#include "app/theme.h"
 
 #include <QHBoxLayout>
 
@@ -25,21 +25,35 @@ StatusBar::StatusBar(QWidget *parent)
     layout->setSpacing(0);
 
     m_infoLabel = new QLabel(this);
+    m_searchLabel = new QLabel(this);
+    m_markLabel = new QLabel(this);
     m_selectionLabel = new QLabel(this);
     m_clipboardLabel = new QLabel(this);
+    m_searchLabel->setStyleSheet(QString("color: %1;").arg(Theme::PURPLE));
+    m_markLabel->setStyleSheet(QString("color: %1; font-weight: 600;").arg(Theme::AMBER));
     m_selectionLabel->setStyleSheet(QString("color: %1;").arg(Theme::FG));
     m_clipboardLabel->setStyleSheet(QString("color: %1;").arg(Theme::GREEN));
 
     layout->addWidget(m_infoLabel, 1);
+    layout->addWidget(m_searchLabel);
+    layout->addWidget(m_markLabel);
     layout->addWidget(m_selectionLabel);
     layout->addWidget(m_clipboardLabel);
 }
 
+void StatusBar::setSearchInfo(const QString &text) {
+    m_searchLabel->setText(text);
+}
+
 void StatusBar::updateInfo(int itemCount, int selectedCount, qint64 selectedSize,
-                           int clipboardCount, bool isCut) {
+                           int clipboardCount, bool isCut, int markCount) {
     m_infoLabel->setText(QString("%1 item%2")
                              .arg(itemCount)
                              .arg(itemCount == 1 ? "" : "s"));
+
+    m_markLabel->setText(markCount > 0
+                             ? QString("✓ %1 marked").arg(markCount)
+                             : QString());
 
     if (selectedCount > 0) {
         QString info = QString("%1 selected").arg(selectedCount);

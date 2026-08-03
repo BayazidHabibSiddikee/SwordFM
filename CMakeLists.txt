@@ -9,19 +9,34 @@ set(CMAKE_AUTORCC ON)
 find_package(Qt6 REQUIRED COMPONENTS Widgets Core)
 
 add_executable(swordfm
-    src/main.cpp
-    src/mainwindow.cpp
-    src/filemodel.cpp
-    src/sidebar.cpp
-    src/fileview.cpp
-    src/toolbar.cpp
-    src/statusbar.cpp
-    src/fileops.cpp
-    src/contextmenu.cpp
-    src/termutil.cpp
-    src/previewpanel.cpp
-    src/filefilter.cpp
-    src/openwith.cpp
+    # app — entry point, main window shell, shared theme constants
+    src/app/main.cpp
+    src/app/mainwindow.cpp
+
+    # model — data layer: filesystem model, filter proxy, recursive search
+    src/model/filemodel.cpp
+    src/model/filefilter.cpp
+    src/model/searchmodel.cpp
+    src/model/filescanner.cpp
+
+    # view — the file listing itself (details / icon / search pages)
+    src/view/fileview.cpp
+
+    # panel — chrome around the listing
+    src/panel/sidebar.cpp
+    src/panel/toolbar.cpp
+    src/panel/statusbar.cpp
+    src/panel/previewpanel.cpp
+
+    # ops — actions performed on files
+    src/ops/fileops.cpp
+    src/ops/archiveops.cpp
+    src/ops/convertops.cpp
+    src/ops/shareops.cpp
+    src/ops/contextmenu.cpp
+    src/ops/openwith.cpp
+    src/ops/termutil.cpp
+
     resources/resources.qrc
 )
 

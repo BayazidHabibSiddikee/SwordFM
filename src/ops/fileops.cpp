@@ -1,4 +1,4 @@
-#include "fileops.h"
+#include "ops/fileops.h"
 
 #include <QFileInfo>
 #include <QDir>

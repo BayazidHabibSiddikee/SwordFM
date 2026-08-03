@@ -1,4 +1,4 @@
-#include "filemodel.h"
+#include "model/filemodel.h"
 #include <QIcon>
 #include <QFileInfo>
 #include <QFont>

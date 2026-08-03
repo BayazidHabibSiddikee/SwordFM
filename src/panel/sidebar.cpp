@@ -1,5 +1,5 @@
-#include "sidebar.h"
-#include "theme.h"
+#include "panel/sidebar.h"
+#include "app/theme.h"
 
 #include <QFile>
 #include <QJsonDocument>
@@ -15,9 +15,33 @@
 #include <QStandardPaths>
 #include <QFileInfo>
 #include <QRegularExpression>
+#include <QDebug>
 
 static QString bookmarksFile() {
     return QDir::homePath() + "/.config/swordfm/bookmarks.json";
+}
+
+// Human-readable name for a block device, or empty if none is known.
+//
+// QStorageInfo::name() returns empty on this system for every volume, which
+// makes displayName() fall back to the mount path — so a udisks-mounted disk
+// shows up as its UUID ("F9EE-6FF0") instead of its label ("shared"). udev
+// exposes the real names as symlinks, so resolve them back to the device:
+// filesystem label first, then the GPT partition name.
+static QString deviceLabel(const QString &device) {
+    if (device.isEmpty()) return {};
+    const QString target = QFileInfo(device).canonicalFilePath();
+    if (target.isEmpty()) return {};
+
+    for (const char *dir : {"/dev/disk/by-label", "/dev/disk/by-partlabel"}) {
+        const QDir d(QString::fromLatin1(dir));
+        if (!d.exists()) continue;
+        for (const QFileInfo &link : d.entryInfoList(QDir::NoDotAndDotDot | QDir::System | QDir::Files | QDir::Dirs)) {
+            if (link.canonicalFilePath() == target)
+                return link.fileName();
+        }
+    }
+    return {};
 }
 
 SideBar::SideBar(QWidget *parent)
@@ -123,6 +147,16 @@ void SideBar::addPlace(QListWidget *list, const QString &label, const QString &p
     list->addItem(item);
 }
 
+void SideBar::addXdgPlace(const QString &label, QStandardPaths::StandardLocation loc,
+                          const QString &iconName) {
+    const QString path = QStandardPaths::writableLocation(loc);
+    // An XDG dir that was never created resolves to $HOME, which would add a
+    // duplicate "Home" entry under a misleading name (e.g. Music → ~).
+    if (path.isEmpty() || QDir(path) == QDir(QDir::homePath()))
+        return;
+    addPlace(m_placesList, label, path, iconName);
+}
+
 void SideBar::rebuildPlaces() {
     m_placesList->clear();
     m_devicesList->clear();
@@ -130,24 +164,12 @@ void SideBar::rebuildPlaces() {
 
     const QString home = QDir::homePath();
     addPlace(m_placesList, "Home", home, "user-home");
-    addPlace(m_placesList, "Desktop",
-             QStandardPaths::writableLocation(QStandardPaths::DesktopLocation),
-             "user-desktop");
-    addPlace(m_placesList, "Documents",
-             QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation),
-             "folder-documents");
-    addPlace(m_placesList, "Downloads",
-             QStandardPaths::writableLocation(QStandardPaths::DownloadLocation),
-             "folder-download");
-    addPlace(m_placesList, "Music",
-             QStandardPaths::writableLocation(QStandardPaths::MusicLocation),
-             "folder-music");
-    addPlace(m_placesList, "Pictures",
-             QStandardPaths::writableLocation(QStandardPaths::PicturesLocation),
-             "folder-pictures");
-    addPlace(m_placesList, "Videos",
-             QStandardPaths::writableLocation(QStandardPaths::MoviesLocation),
-             "folder-videos");
+    addXdgPlace("Desktop",   QStandardPaths::DesktopLocation,   "user-desktop");
+    addXdgPlace("Documents", QStandardPaths::DocumentsLocation, "folder-documents");
+    addXdgPlace("Downloads", QStandardPaths::DownloadLocation,  "folder-download");
+    addXdgPlace("Music",     QStandardPaths::MusicLocation,     "folder-music");
+    addXdgPlace("Pictures",  QStandardPaths::PicturesLocation,  "folder-pictures");
+    addXdgPlace("Videos",    QStandardPaths::MoviesLocation,    "folder-videos");
     addPlace(m_placesList, "Trash",
              home + "/.local/share/Trash/files", "user-trash");
 
@@ -161,7 +183,7 @@ void SideBar::rebuildPlaces() {
         const QString fsType = QString::fromUtf8(vol.fileSystemType()).toLower();
         const QString device = QString::fromUtf8(vol.device());
         const bool isRclone = fsType.contains("rclone")
-            || device.endsWith(':') && fsType.contains("fuse");
+            || (device.endsWith(':') && fsType.contains("fuse"));
 
         const bool isRemovablePath = root.startsWith("/run/media")
             || root.startsWith("/media")
@@ -195,9 +217,14 @@ void SideBar::rebuildPlaces() {
                     name.chop(1);
             }
         } else {
-            name = vol.displayName();
-            if (name.isEmpty() || name == root)
-                name = base;
+            // Prefer the disk's own label; the mount point is often just the
+            // UUID, which is meaningless to read in a sidebar.
+            name = deviceLabel(device);
+            if (name.isEmpty()) {
+                name = vol.displayName();
+                if (name.isEmpty() || name == root)
+                    name = base;
+            }
             if (name.isEmpty()) name = root;
         }
 
@@ -231,9 +258,17 @@ void SideBar::rebuildPlaces() {
         addPlace(m_bookmarksList, label, bm, "folder", true);
     }
 
-    // Fit height to contents
+    // Fit height to contents. Scrollbars are disabled, so anything past the
+    // fixed height is invisible rather than reachable — a hard-coded row
+    // height silently swallowed the last entries once the stylesheet's
+    // padding/margin pushed rows past it. sizeHintForRow() picks up the
+    // stylesheet metrics without needing a layout pass to have run.
     for (auto *list : {m_placesList, m_devicesList, m_bookmarksList}) {
-        int h = list->count() * 32 + 4;
+        int h = 8;
+        if (list->count() > 0) {
+            const int row = qMax(list->sizeHintForRow(0), 24);
+            h = list->count() * (row + 2 * 1) + 2 * list->frameWidth() + 4;
+        }
         list->setFixedHeight(qMax(h, 8));
     }
 

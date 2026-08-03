@@ -1,9 +1,15 @@
-#include "toolbar.h"
-#include "theme.h"
+#include "panel/toolbar.h"
+#include "app/theme.h"
 
 #include <QIcon>
 #include <QApplication>
 #include <QStyle>
+#include <QDialog>
+#include <QDateEdit>
+#include <QCheckBox>
+#include <QFormLayout>
+#include <QVBoxLayout>
+#include <QDialogButtonBox>
 
 ToolBar::ToolBar(QWidget *parent)
     : QWidget(parent)
@@ -24,6 +30,16 @@ ToolBar::ToolBar(QWidget *parent)
         "  selection-background-color: %2; selection-color: %6;"
         "}"
         "QLineEdit:focus { border-color: %6; }"
+        "QComboBox {"
+        "  background: %4; color: %3; border: 1px solid %2;"
+        "  border-radius: 4px; padding: 4px 8px; font-size: 12px;"
+        "}"
+        "QComboBox:hover { border-color: %6; }"
+        "QComboBox::drop-down { border: none; width: 18px; }"
+        "QComboBox QAbstractItemView {"
+        "  background: %1; color: %3; border: 1px solid %2;"
+        "  selection-background-color: %2; selection-color: %6;"
+        "}"
     ).arg(Theme::BG2, Theme::DIM, Theme::FG, Theme::BG, Theme::FG_DIM, Theme::CYAN));
 
     auto *layout = new QHBoxLayout(this);
@@ -56,6 +72,22 @@ ToolBar::ToolBar(QWidget *parent)
     m_searchEdit->setMinimumWidth(120);
     connect(m_searchEdit, &QLineEdit::textChanged, this, &ToolBar::searchQuery);
 
+    m_typeBox = new QComboBox(this);
+    m_typeBox->addItem("All types");
+    m_typeBox->addItem("Images");
+    m_typeBox->addItem("Videos");
+    m_typeBox->addItem("Audio");
+    m_typeBox->addItem("Documents");
+    m_typeBox->addItem("Archives");
+    m_typeBox->addItem("Discs / ISO");
+    m_typeBox->setToolTip("Filter by file type");
+    m_typeBox->setFixedWidth(120);
+    connect(m_typeBox, &QComboBox::currentIndexChanged, this, &ToolBar::typeFilterChanged);
+
+    m_dateBtn = makeNavButton("x-office-calendar", QStyle::SP_FileDialogDetailedView,
+                              "Filter by modified date range");
+    connect(m_dateBtn, &QToolButton::clicked, this, &ToolBar::pickDateRange);
+
     m_viewBtn = makeNavButton("view-list-details", QStyle::SP_FileDialogDetailedView,
                               "Toggle Icon / Details view");
     connect(m_viewBtn, &QToolButton::clicked, this, &ToolBar::viewModeToggled);
@@ -69,10 +101,59 @@ ToolBar::ToolBar(QWidget *parent)
     layout->addWidget(m_pathEdit, 1);
     layout->addSpacing(4);
     layout->addWidget(m_searchEdit);
+    layout->addWidget(m_typeBox);
+    layout->addWidget(m_dateBtn);
     layout->addWidget(m_viewBtn);
 
     setCanGoBack(false);
     setCanGoForward(false);
+}
+
+void ToolBar::pickDateRange() {
+    QDialog dlg(this);
+    dlg.setWindowTitle("Filter by modified date");
+
+    auto *fromEdit = new QDateEdit(m_from.isValid() ? m_from
+                                                    : QDate::currentDate().addMonths(-1), &dlg);
+    auto *toEdit = new QDateEdit(m_to.isValid() ? m_to : QDate::currentDate(), &dlg);
+    for (auto *e : {fromEdit, toEdit}) {
+        e->setCalendarPopup(true);
+        e->setDisplayFormat("yyyy-MM-dd");
+    }
+
+    auto *enabled = new QCheckBox("Limit to this date range", &dlg);
+    enabled->setChecked(m_from.isValid() || m_to.isValid());
+
+    auto *form = new QFormLayout;
+    form->addRow("From:", fromEdit);
+    form->addRow("To:", toEdit);
+
+    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dlg);
+    connect(buttons, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
+    connect(buttons, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+
+    auto *lay = new QVBoxLayout(&dlg);
+    lay->addWidget(enabled);
+    lay->addLayout(form);
+    lay->addWidget(buttons);
+
+    if (dlg.exec() != QDialog::Accepted)
+        return;
+
+    if (enabled->isChecked()) {
+        m_from = fromEdit->date();
+        m_to = toEdit->date();
+        if (m_from > m_to)
+            std::swap(m_from, m_to);
+    } else {
+        m_from = QDate();
+        m_to = QDate();
+    }
+
+    m_dateBtn->setToolTip(m_from.isValid()
+        ? QString("Modified %1 → %2").arg(m_from.toString("yyyy-MM-dd"), m_to.toString("yyyy-MM-dd"))
+        : QString("Filter by modified date range"));
+    emit dateRangeChanged(m_from, m_to);
 }
 
 QToolButton *ToolBar::makeNavButton(const QString &themeIcon, QStyle::StandardPixmap fallback,

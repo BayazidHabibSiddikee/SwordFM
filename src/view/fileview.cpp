@@ -1,7 +1,7 @@
-#include "fileview.h"
-#include "filefilter.h"
-#include "fileicondelegate.h"
-#include "theme.h"
+#include "view/fileview.h"
+#include "model/filefilter.h"
+#include "model/searchmodel.h"
+#include "app/theme.h"
 
 #include <QHeaderView>
 #include <QVBoxLayout>
@@ -26,9 +26,11 @@ FileView::FileView(QFileSystemModel *model, QWidget *parent)
 
     setupDetailsView();
     setupIconView();
+    setupSearchView();
 
     m_stack->addWidget(m_detailsView);
     m_stack->addWidget(m_iconView);
+    m_stack->addWidget(m_searchView);
     m_stack->setCurrentWidget(m_detailsView);
 
     setStyleSheet(QString(
@@ -83,9 +85,6 @@ void FileView::setupDetailsView() {
     m_detailsView->setAllColumnsShowFocus(true);
     m_detailsView->setIconSize(QSize(22, 22));
 
-    // Custom icon delegate for first column
-    m_detailsView->setItemDelegateForColumn(0, new FileIconDelegate(this));
-
     auto *hdr = m_detailsView->header();
     hdr->setStretchLastSection(true);
     hdr->setSectionsClickable(true);
@@ -117,11 +116,64 @@ void FileView::setupIconView() {
     m_iconView->setDefaultDropAction(Qt::MoveAction);
     m_iconView->setDragDropMode(QAbstractItemView::DragDrop);
     m_iconView->setEditTriggers(QAbstractItemView::EditKeyPressed);
-
-    // Custom delegate for icon view
-    m_iconView->setItemDelegate(new FileIconDelegate(this));
-
     wireView(m_iconView);
+}
+
+void FileView::setupSearchView() {
+    m_searchModel = new SearchModel(this);
+    m_searchView = new QTreeView(this);
+    m_searchView->setModel(m_searchModel);
+    m_searchView->setRootIsDecorated(false);
+    m_searchView->setUniformRowHeights(true);
+    m_searchView->setAlternatingRowColors(true);
+    m_searchView->setSortingEnabled(true);
+    m_searchView->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    m_searchView->setSelectionBehavior(QAbstractItemView::SelectRows);
+    m_searchView->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    m_searchView->setAllColumnsShowFocus(true);
+    m_searchView->setIconSize(QSize(22, 22));
+
+    // Locations are deep paths whose tail is the informative part, so trim the
+    // leading directories rather than the folder the file actually sits in.
+    m_searchView->setTextElideMode(Qt::ElideLeft);
+
+    auto *hdr = m_searchView->header();
+    hdr->setStretchLastSection(true);
+    hdr->resizeSection(0, 280);
+    hdr->resizeSection(1, 320);
+    hdr->resizeSection(2, 90);
+    hdr->resizeSection(3, 120);
+
+    wireView(m_searchView);
+
+    connect(m_searchModel, &SearchModel::progress, this, &FileView::searchProgress);
+    connect(m_searchModel, &SearchModel::completed, this,
+            [this](int found, bool truncated) {
+                m_searchView->setSortingEnabled(true);
+                emit searchFinished(found, truncated);
+            });
+}
+
+void FileView::startSearch(const QString &root, int typeFilter,
+                           const QDate &from, const QDate &to, bool includeHidden) {
+    // Sorting stays off during the walk: re-sorting on every incoming batch
+    // costs more than the scan itself. It is re-enabled in searchFinished.
+    m_searchView->setSortingEnabled(false);
+    m_searchMode = true;
+    m_stack->setCurrentWidget(m_searchView);
+    m_searchModel->startSearch(
+        root, static_cast<FileFilterProxy::TypeFilter>(typeFilter), from, to,
+        includeHidden);
+}
+
+void FileView::clearSearchResults() {
+    m_searchModel->stopSearch();
+    if (!m_searchMode)
+        return;
+    m_searchMode = false;
+    m_stack->setCurrentWidget(m_detailsMode ? static_cast<QWidget*>(m_detailsView)
+                                            : static_cast<QWidget*>(m_iconView));
+    emit selectionChanged();
 }
 
 void FileView::wireView(QAbstractItemView *view) {
@@ -137,14 +189,20 @@ QModelIndex FileView::toSource(const QModelIndex &proxyIndex) const {
 }
 
 void FileView::setRootIndex(const QModelIndex &sourceIndex) {
+    // Navigating anywhere abandons a search result set.
+    m_searchMode = false;
     QModelIndex proxyRoot = m_proxy->mapFromSource(sourceIndex);
     m_detailsView->setRootIndex(proxyRoot);
     m_iconView->setRootIndex(proxyRoot);
+    m_stack->setCurrentWidget(m_detailsMode ? static_cast<QWidget*>(m_detailsView)
+                                            : static_cast<QWidget*>(m_iconView));
     clearSelection();
 }
 
 void FileView::setDetailsMode(bool details) {
     m_detailsMode = details;
+    if (m_searchMode)
+        return; // the flat result list has no icon-mode equivalent
     QStringList paths = selectedPaths();
     m_stack->setCurrentWidget(details ? static_cast<QWidget*>(m_detailsView)
                                       : static_cast<QWidget*>(m_iconView));
@@ -172,7 +230,7 @@ QStringList FileView::selectedPaths() const {
     auto *view = currentView();
     for (const auto &idx : view->selectionModel()->selectedIndexes()) {
         if (idx.column() != 0) continue;
-        QString p = m_proxy->filePath(idx);
+        QString p = m_searchMode ? m_searchModel->pathAt(idx) : m_proxy->filePath(idx);
         if (!p.isEmpty() && !seen.contains(p)) {
             seen.insert(p);
             paths.append(p);
@@ -182,15 +240,27 @@ QStringList FileView::selectedPaths() const {
 }
 
 QModelIndex FileView::currentIndex() const {
+    if (m_searchMode)
+        return m_fsModel->index(m_searchModel->pathAt(m_searchView->currentIndex()));
     return toSource(currentView()->currentIndex());
 }
 
 QAbstractItemView *FileView::currentView() const {
+    if (m_searchMode)
+        return m_searchView;
     return m_detailsMode ? static_cast<QAbstractItemView*>(m_detailsView)
                          : static_cast<QAbstractItemView*>(m_iconView);
 }
 
 void FileView::onDoubleClicked(const QModelIndex &proxyIndex) {
+    if (m_searchMode) {
+        // Search rows are not backed by the filesystem model, so hand the
+        // caller a path and let it decide how to open or reveal it.
+        const QString p = m_searchModel->pathAt(proxyIndex);
+        if (!p.isEmpty())
+            emit pathActivated(p);
+        return;
+    }
     emit fileActivated(toSource(proxyIndex));
 }
 
@@ -211,7 +281,7 @@ bool FileView::eventFilter(QObject *obj, QEvent *event) {
             if (ke->key() == Qt::Key_Return || ke->key() == Qt::Key_Enter) {
                 QModelIndex idx = view->currentIndex();
                 if (idx.isValid()) {
-                    emit fileActivated(toSource(idx));
+                    onDoubleClicked(idx);
                     return true;
                 }
             }

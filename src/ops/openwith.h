@@ -28,21 +28,3 @@ bool openWithDefault(const QString &path);
 
 // Known video player desktop ids / names for fallback ordering.
 QStringList preferredVideoPlayers();
-
-// Known image viewer desktop ids / names for fallback ordering.
-QStringList preferredImageViewers();
-
-// Known text editor desktop ids / names for fallback ordering.
-QStringList preferredTextEditors();
-
-// Known audio player desktop ids / names for fallback ordering.
-QStringList preferredAudioPlayers();
-
-// Known PDF reader desktop ids / names for fallback ordering.
-QStringList preferredPdfReaders();
-
-// Known archiver desktop ids / names for fallback ordering.
-QStringList preferredArchivers();
-
-// List all installed applications (scans .desktop files).
-QList<AppHandler> allInstalledApps();

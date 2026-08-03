@@ -6,6 +6,7 @@
 #include <QStringList>
 #include <QLabel>
 #include <QIcon>
+#include <QStandardPaths>
 
 class SideBar : public QWidget {
     Q_OBJECT
@@ -30,6 +31,8 @@ private:
     void saveBookmarks();
     void addPlace(QListWidget *list, const QString &label, const QString &path,
                   const QString &iconName, bool isBookmark = false);
+    void addXdgPlace(const QString &label, QStandardPaths::StandardLocation loc,
+                     const QString &iconName);
     QIcon placeIcon(const QString &iconName) const;
 
     QListWidget *m_placesList;
