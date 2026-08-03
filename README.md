@@ -2,6 +2,12 @@
 
 Thunar-like Qt6 file manager with a sworddeck One Dark theme, Places sidebar, rclone device mounts, in-app preview panel, and XDG Open With support.
 
+## Screenshots
+
+![SwordFM](screenshots/1785729392.png)
+
+![SwordFM](screenshots/1785729404.png)
+
 ## Features
 
 - Details + icon views, Places / Devices / Bookmarks
