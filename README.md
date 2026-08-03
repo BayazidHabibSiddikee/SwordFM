@@ -23,21 +23,22 @@ Every release package bundles all four — no separate downloads.
 
 ## Installation
 
+Pick **one** option below. Each one installs everything — Qt6 runtime, Python 3, `qrcode`, and all four tools — in a single run.
+
 ### Option 1: .deb package (Ubuntu / Debian / Kali)
 
 ```bash
 wget https://github.com/BayazidHabibSiddikee/SwordFM/releases/download/v1.0.0/swordfm-1.0.0-amd64.deb
 sudo dpkg -i swordfm-1.0.0-amd64.deb
-sudo apt-get install -f
+sudo apt-get install -f -y
+sudo apt install -y libqt6widgets6 python3 python3-qrcode
 swordfm
 ```
 
-Installs `swordfm`, `swordshare`, `swordgraph`, and `swordconv` to `/usr/bin/`.
+This installs `swordfm`, `swordshare`, `swordgraph`, and `swordconv` to `/usr/bin/`, the Qt6 runtime, Python 3, and `qrcode` (for QR codes in swordshare).
 
-> **Qt version note:** The .deb was built against Qt 6.11. If you get a
-> `version 'Qt_6.x' not found` error, your distro ships an older Qt6.
-> Use Option 2 (tarball) or Option 3 (build from source) instead —
-> both work with any Qt6 version.
+> **Qt version note:** The .deb was built against Qt 6.11. If `libqt6widgets6` can't
+> be satisfied on your repos, use Option 2 or Option 3 instead — both work with any Qt6 version.
 
 ---
 
@@ -47,7 +48,17 @@ Installs `swordfm`, `swordshare`, `swordgraph`, and `swordconv` to `/usr/bin/`.
 wget https://github.com/BayazidHabibSiddikee/SwordFM/releases/download/v1.0.0/swordfm-1.0.0-linux-x64.tar.gz
 tar xzf swordfm-1.0.0-linux-x64.tar.gz
 cd SwordFM
-./install.sh        # installs to ~/.local/bin — no sudo needed
+
+# Ubuntu / Debian / Kali
+sudo apt install -y libqt6widgets6 python3 python3-qrcode
+
+# Arch
+sudo pacman -S qt6-base python python-qrcode
+
+# Fedora
+sudo dnf install qt6-qtbase python3 python3-qrcode
+
+./install.sh        # installs swordfm + all three helper tools to ~/.local/bin
 ```
 
 Or run directly without installing:
@@ -61,64 +72,27 @@ Or run directly without installing:
 
 ---
 
-### Option 3: Build from source (works on any Qt6 version)
+### Option 3: Build from source (works on any Qt6 version, most reliable)
 
-This is the most reliable option — it compiles against whatever Qt6 your system has.
+This option compiles against whatever Qt6 your system has, so it always works regardless of version.
 
 ```bash
 git clone https://github.com/BayazidHabibSiddikee/SwordFM.git
 cd SwordFM
 
 # Ubuntu / Debian / Kali
-sudo apt install qt6-base-dev cmake g++ build-essential
+sudo apt install -y qt6-base-dev cmake g++ build-essential python3 python3-qrcode
 
 # Arch
-sudo pacman -S qt6-base cmake gcc
+sudo pacman -S qt6-base cmake gcc python python-qrcode
 
 # Fedora
-sudo dnf install qt6-qtbase-devel cmake gcc-c++
+sudo dnf install qt6-qtbase-devel cmake gcc-c++ python3 python3-qrcode
 
-# Build and install
 ./install.sh
 ```
 
-`install.sh` installs `swordfm` to `~/.local/bin/` and all three helpers automatically.
-
----
-
-## After Installing — Required & Optional Packages
-
-**Qt6 runtime** (required — the file manager won't launch without it):
-
-```bash
-# Ubuntu / Debian / Kali
-sudo apt install libqt6widgets6
-
-# Arch
-sudo pacman -S qt6-base
-
-# Fedora
-sudo dnf install qt6-qtbase
-```
-
-**Python 3** (required — for swordshare, swordgraph, swordconv):
-
-Pre-installed on most distros. Check with `python3 --version`.
-
-```bash
-# If missing:
-sudo apt install python3
-```
-
-**qrcode** (optional — only needed for QR codes in swordshare):
-
-`swordshare` works fine without it. The QR panel will just be blank.
-
-```bash
-pip install qrcode[pil]
-# or system-wide:
-sudo apt install python3-qrcode
-```
+`install.sh` compiles SwordFM and installs `swordfm` to `~/.local/bin/` along with all three helper tools.
 
 ---
 
