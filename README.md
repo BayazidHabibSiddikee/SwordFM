@@ -21,9 +21,34 @@ Every release package bundles all four — no separate downloads.
 
 ---
 
+## Dependencies
+
+Every feature of SwordFM and its tools requires the following. The install commands in each option below cover all of them.
+
+| Dependency | Used by | Notes |
+|---|---|---|
+| Qt6 (Widgets, Core) | `swordfm` | Core UI framework |
+| `poppler-utils` | Preview panel | PDF preview (`pdftoppm`) |
+| `tar`, `gzip`, `xz`, `bzip2`, `zstd` | Archive ops | Compress / extract tarballs |
+| `zip` / `unzip` | Archive ops | ZIP support |
+| `p7zip` / `7zip` | Archive ops | 7z and fallback ZIP/RAR |
+| `unrar` | Archive ops | RAR extraction (optional) |
+| `graphviz` | `swordgraph` | Renders folder graphs (`neato`) |
+| `python3` + `pip` | `swordconv`, `swordshare`, `swordgraph` | All three helper tools |
+| `pymupdf` (pip) | `swordconv` | Read/write PDF |
+| `mammoth` (pip) | `swordconv` | Read DOCX files |
+| `python-docx` (pip) | `swordconv` | Write DOCX files |
+| `pdf2docx` (pip) | `swordconv` | PDF → DOCX with layout |
+| `beautifulsoup4` (pip) | `swordconv` | HTML parsing |
+| `markdown` (pip) | `swordconv` | Markdown rendering (optional, has built-in fallback) |
+| `qrcode` (pip) | `swordshare` | QR code generation (optional) |
+| A terminal emulator | `swordfm` F4 key | Any one: ghostty, kitty, alacritty, wezterm, foot, konsole, xfce4-terminal, gnome-terminal, or xterm |
+
+---
+
 ## Installation
 
-Pick **one** option below. Each one installs everything — Qt6 runtime, Python 3, `qrcode`, and all four tools — in a single run.
+Pick **one** option below. Each installs all four tools and every dependency.
 
 ### Option 1: .deb package (Ubuntu / Debian / Kali)
 
@@ -31,11 +56,23 @@ Pick **one** option below. Each one installs everything — Qt6 runtime, Python 
 wget https://github.com/BayazidHabibSiddikee/SwordFM/releases/download/v1.0.0/swordfm-1.0.0-amd64.deb
 sudo dpkg -i swordfm-1.0.0-amd64.deb
 sudo apt-get install -f -y
-sudo apt install -y libqt6widgets6 python3 python3-qrcode
+
+# System packages
+sudo apt install -y \
+  libqt6widgets6 libqt6core6 \
+  poppler-utils \
+  tar gzip xz-utils bzip2 zstd \
+  zip unzip p7zip-full unrar \
+  graphviz \
+  python3 python3-pip
+
+# Python packages (for swordconv, swordshare, swordgraph)
+pip install pymupdf mammoth python-docx pdf2docx beautifulsoup4 markdown qrcode
+
 swordfm
 ```
 
-This installs `swordfm`, `swordshare`, `swordgraph`, and `swordconv` to `/usr/bin/`, the Qt6 runtime, Python 3, and `qrcode` (for QR codes in swordshare).
+This installs `swordfm`, `swordshare`, `swordgraph`, and `swordconv` to `/usr/bin/`.
 
 > **Qt version note:** The .deb was built against Qt 6.11. If `libqt6widgets6` can't
 > be satisfied on your repos, use Option 2 or Option 3 instead — both work with any Qt6 version.
@@ -48,17 +85,53 @@ This installs `swordfm`, `swordshare`, `swordgraph`, and `swordconv` to `/usr/bi
 wget https://github.com/BayazidHabibSiddikee/SwordFM/releases/download/v1.0.0/swordfm-1.0.0-linux-x64.tar.gz
 tar xzf swordfm-1.0.0-linux-x64.tar.gz
 cd SwordFM
+```
 
-# Ubuntu / Debian / Kali
-sudo apt install -y libqt6widgets6 python3 python3-qrcode
+Install all dependencies for your distro, then run `./install.sh`:
 
-# Arch
-sudo pacman -S qt6-base python python-qrcode
+**Ubuntu / Debian / Kali**
+```bash
+sudo apt install -y \
+  libqt6widgets6 libqt6core6 \
+  poppler-utils \
+  tar gzip xz-utils bzip2 zstd \
+  zip unzip p7zip-full unrar \
+  graphviz \
+  python3 python3-pip
 
-# Fedora
-sudo dnf install qt6-qtbase python3 python3-qrcode
+pip install pymupdf mammoth python-docx pdf2docx beautifulsoup4 markdown qrcode
 
-./install.sh        # installs swordfm + all three helper tools to ~/.local/bin
+./install.sh
+```
+
+**Arch**
+```bash
+sudo pacman -S --needed \
+  qt6-base \
+  poppler \
+  tar gzip xz bzip2 zstd \
+  zip unzip p7zip unrar \
+  graphviz \
+  python python-pip
+
+pip install pymupdf mammoth python-docx pdf2docx beautifulsoup4 markdown qrcode
+
+./install.sh
+```
+
+**Fedora**
+```bash
+sudo dnf install -y \
+  qt6-qtbase \
+  poppler-utils \
+  tar gzip xz bzip2 zstd \
+  zip unzip p7zip p7zip-plugins unrar \
+  graphviz \
+  python3 python3-pip
+
+pip install pymupdf mammoth python-docx pdf2docx beautifulsoup4 markdown qrcode
+
+./install.sh
 ```
 
 Or run directly without installing:
@@ -79,15 +152,51 @@ This option compiles against whatever Qt6 your system has, so it always works re
 ```bash
 git clone https://github.com/BayazidHabibSiddikee/SwordFM.git
 cd SwordFM
+```
 
-# Ubuntu / Debian / Kali
-sudo apt install -y qt6-base-dev cmake g++ build-essential python3 python3-qrcode
+Install all dependencies for your distro, then run `./install.sh`:
 
-# Arch
-sudo pacman -S qt6-base cmake gcc python python-qrcode
+**Ubuntu / Debian / Kali**
+```bash
+sudo apt install -y \
+  qt6-base-dev cmake g++ build-essential \
+  poppler-utils \
+  tar gzip xz-utils bzip2 zstd \
+  zip unzip p7zip-full unrar \
+  graphviz \
+  python3 python3-pip
 
-# Fedora
-sudo dnf install qt6-qtbase-devel cmake gcc-c++ python3 python3-qrcode
+pip install pymupdf mammoth python-docx pdf2docx beautifulsoup4 markdown qrcode
+
+./install.sh
+```
+
+**Arch**
+```bash
+sudo pacman -S --needed \
+  qt6-base cmake gcc \
+  poppler \
+  tar gzip xz bzip2 zstd \
+  zip unzip p7zip unrar \
+  graphviz \
+  python python-pip
+
+pip install pymupdf mammoth python-docx pdf2docx beautifulsoup4 markdown qrcode
+
+./install.sh
+```
+
+**Fedora**
+```bash
+sudo dnf install -y \
+  qt6-qtbase-devel cmake gcc-c++ \
+  poppler-utils \
+  tar gzip xz bzip2 zstd \
+  zip unzip p7zip p7zip-plugins unrar \
+  graphviz \
+  python3 python3-pip
+
+pip install pymupdf mammoth python-docx pdf2docx beautifulsoup4 markdown qrcode
 
 ./install.sh
 ```
