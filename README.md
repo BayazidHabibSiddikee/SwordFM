@@ -56,21 +56,10 @@ Pick **one** option below. Each installs all four tools and every dependency.
 wget https://github.com/BayazidHabibSiddikee/SwordFM/releases/download/v1.0.0/swordfm-1.0.0-amd64.deb
 sudo dpkg -i swordfm-1.0.0-amd64.deb
 sudo apt-get install -f -y
-
-# System packages
-sudo apt install -y \
-  libqt6widgets6 libqt6core6 \
-  poppler-utils \
-  tar gzip xz-utils bzip2 zstd \
-  zip unzip p7zip-full unrar \
-  graphviz \
-  python3 python3-pip
-
-# Python packages (for swordconv, swordshare, swordgraph)
-pip install pymupdf mammoth python-docx pdf2docx beautifulsoup4 markdown qrcode
-
 swordfm
 ```
+
+That's it. `apt-get install -f` resolves all system packages, and the post-install script automatically runs `pip install` for all Python dependencies (`pymupdf`, `mammoth`, `python-docx`, `pdf2docx`, `beautifulsoup4`, `markdown`, `qrcode`). Everything is handled — no manual steps.
 
 This installs `swordfm`, `swordshare`, `swordgraph`, and `swordconv` to `/usr/bin/`.
 

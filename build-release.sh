@@ -87,12 +87,20 @@ Section: utils
 Priority: optional
 Architecture: $ARCH
 Installed-Size: $INSTALLED_KB
-Depends: libqt6widgets6 | libqt6widgets6t64, libqt6core6 | libqt6core6t64, python3
+Depends: libqt6widgets6 | libqt6widgets6t64, libqt6core6 | libqt6core6t64,
+ python3, python3-pip,
+ poppler-utils,
+ tar, gzip, xz-utils, bzip2, zstd,
+ zip, unzip, p7zip-full,
+ graphviz
 Maintainer: BayazidHabibSiddikee <your@email.com>
 Description: SwordFM — Thunar-like Qt6 file manager
  A fast, keyboard-driven file manager built in C++20 with Qt6.
  Includes swordshare (LAN sharing), swordgraph (folder graph),
  and swordconv (document conversion).
+ .
+ The postinst script automatically installs all Python dependencies
+ (pymupdf, mammoth, python-docx, pdf2docx, beautifulsoup4, markdown, qrcode).
 EOF
 
 # DEBIAN/postinst and prerm
